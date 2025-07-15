@@ -1,0 +1,106 @@
+{
+  "totalCount": 10,
+  "downloadedAt": "2025-07-15T04:57:19.000Z",
+  "tasks": [
+    {
+      "taskId": "T-002",
+      "summary": "사용자 입력 텍스트 임베딩 생성 로직 구현",
+      "status": "BACKLOG",
+      "importance": "MUST",
+      "complexity": 5,
+      "urgency": 10,
+      "createdAt": "2025-07-15T04:41:19.425Z",
+      "updatedAt": "2025-07-15T04:41:19.425Z"
+    },
+    {
+      "taskId": "T-003",
+      "summary": "벡터 검색 REST API(FastAPI) 개발",
+      "status": "BACKLOG",
+      "importance": "MUST",
+      "complexity": 6,
+      "urgency": 10,
+      "createdAt": "2025-07-15T04:41:19.425Z",
+      "updatedAt": "2025-07-15T04:41:19.425Z"
+    },
+    {
+      "taskId": "T-004",
+      "summary": "검색 입력 및 결과 리스트 웹 UI(Next.js) 구현",
+      "status": "IN_PROGRESS",
+      "importance": "MUST",
+      "complexity": 4,
+      "urgency": 9,
+      "createdAt": "2025-07-15T04:41:19.425Z",
+      "updatedAt": "2025-07-15T04:52:04.949Z"
+    },
+    {
+      "taskId": "T-005",
+      "summary": "프론트엔드-백엔드-DB 기본 연결 및 통합 테스트",
+      "status": "BACKLOG",
+      "importance": "MUST",
+      "complexity": 2,
+      "urgency": 8,
+      "createdAt": "2025-07-15T04:41:19.425Z",
+      "updatedAt": "2025-07-15T04:41:19.425Z"
+    },
+    {
+      "taskId": "T-006",
+      "summary": "검색 결과 Top-N 제한 또는 페이징 기능 구현(선택)",
+      "status": "BACKLOG",
+      "importance": "SHOULD",
+      "complexity": 2,
+      "urgency": 6,
+      "createdAt": "2025-07-15T04:41:19.425Z",
+      "updatedAt": "2025-07-15T04:41:19.425Z"
+    },
+    {
+      "taskId": "T-007",
+      "summary": "사용자 입력 처리 및 arXiv API 쿼리 모듈 구현",
+      "status": "BACKLOG",
+      "importance": "MUST",
+      "complexity": 4,
+      "urgency": 9,
+      "createdAt": "2025-07-15T04:49:57.850Z",
+      "updatedAt": "2025-07-15T04:49:57.850Z"
+    },
+    {
+      "taskId": "T-008",
+      "summary": "arXiv 논문 메타데이터 파싱 및 정제",
+      "status": "BACKLOG",
+      "importance": "MUST",
+      "complexity": 3,
+      "urgency": 9,
+      "createdAt": "2025-07-15T04:49:57.850Z",
+      "updatedAt": "2025-07-15T04:49:57.850Z"
+    },
+    {
+      "taskId": "T-009",
+      "summary": "Supabase(PostgreSQL) 논문 테이블 설계 및 저장 로직 구현",
+      "status": "BACKLOG",
+      "importance": "MUST",
+      "complexity": 5,
+      "urgency": 8,
+      "createdAt": "2025-07-15T04:49:57.850Z",
+      "updatedAt": "2025-07-15T04:49:57.850Z"
+    },
+    {
+      "taskId": "T-010",
+      "summary": "검색-저장 전체 플로우 단위 테스트",
+      "status": "BACKLOG",
+      "importance": "MUST",
+      "complexity": 3,
+      "urgency": 7,
+      "createdAt": "2025-07-15T04:49:57.850Z",
+      "updatedAt": "2025-07-15T04:49:57.850Z"
+    },
+    {
+      "taskId": "T-011",
+      "summary": "기본 에러 및 예외 처리 구현(선택)",
+      "status": "BACKLOG",
+      "importance": "SHOULD",
+      "complexity": 2,
+      "urgency": 5,
+      "createdAt": "2025-07-15T04:49:57.850Z",
+      "updatedAt": "2025-07-15T04:49:57.850Z"
+    }
+  ]
+}

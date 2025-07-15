@@ -1,0 +1,183 @@
+# Technical Requirements Document (TRD)
+
+## 1. Executive Technical Summary
+- **프로젝트 개요**  
+  연구자가 선택한 분야의 최신 논문을 자동 수집·벡터 검색하여 RAG 기반으로 구조화된 요약(problem, solution, contribution, figure 포함)을 제공. 웹 UI를 통한 연구 효율 극대화.
+- **핵심 기술 스택**  
+  Frontend: Next.js(React)  
+  Backend/API: FastAPI(Python) + LangChain  
+  LLM: OpenAI GPT-4.1 mini  
+  DB: Supabase(PostgreSQL) + pgvector  
+  캐시: Redis  
+  PDF 파싱: PyMuPDF (fitz)  
+  배포: AWS(ECS/EKS) + CDN  
+- **주요 기술 목표**  
+  • 검색+요약 응답 시간 ≤15초, 스트리밍 UI로 체감 속도 개선  
+  • 요약 정확도 BLEU>0.4, 사용자 평가 ≥4/5  
+  • 월 100만 건 요약 처리 가능 확장성  
+  • 가용성 99.5% 이상  
+- **핵심 가정**  
+  • 공개 접근(arXiv) 논문 위주 수집  
+  • 초기 사용자 5,000명 규모 예상  
+  • 클라우드 기반 오토스케일링 활용  
+  • GDPR·OAuth2 인증 필수
+
+## 2. Tech Stack
+
+| Category           | Technology / Library         | Reasoning (선택 이유)                                  |
+| ------------------ | ---------------------------- | ----------------------------------------------------- |
+| Frontend Framework | Next.js (React)              | SEO 지원, SSR/SSG로 빠른 초기 로드 및 반응형 UI 구현   |
+| Backend Framework  | FastAPI                      | 비동기 처리, 타입 지원, 빠른 개발 속도                |
+| 언어               | Python                       | LangChain·ORM 등 풍부한 생태계               |
+| RAG Orchestration  | LangChain                    | 모듈화된 파이프라인, 다양한 LLM 연동 지원              |
+| LLM Provider       | OpenAI GPT-4.1 mini          | 경량화된 최신 LLM, 빠른 응답 속도, 비용 효율           |
+| Database           | Supabase (PostgreSQL + pgvector) | 벡터 검색 내장, 관리형 서비스로 운영 편의성           |
+| ORM                | SQLAlchemy (또는 Supabase SDK)| Python 친화적, 확장성 있는 쿼리/매핑                 |
+| 캐시 & 큐          | Redis                        | 세션·알림·배치 큐로 사용, 인메모리 성능                |
+| PDF 파싱 & OCR     | PyMuPDF (fitz)     | 고정밀도 PDF→텍스트·이미지 추출                       |
+| 이미지 CDN         | AWS CloudFront               | 전세계 빠른 이미지 딜리버리                   |         
+| 배포 & 오케스트레이션 | AWS ECS/EKS, Docker         | 컨테이너 기반 자동 확장, 관리형 Kubernetes 지원       |
+| CI/CD              | GitHub Actions               | 코드 푸시 자동 테스트·배포 파이프라인                  |
+
+## 3. System Architecture Design
+
+### 파이프라인 기반 아키텍처 개요
+전체 시스템은 데이터 준비를 위한 **오프라인 배치 파이프라인**과, 사용자 요청을 실시간으로 처리하는 **온라인 서빙 파이프라인**으로 분리되어 설계됩니다.
+
+#### 1. 오프라인 배치 파이프라인 (데이터 준비)
+- **스케줄러/오케스트레이션**: (예: Airflow, Celery Beat, Kubernetes CronJob)
+- **논문 메타데이터 수집**: arXiv, Semantic Scholar, CrossRef API 활용, 중복 체크 및 저장
+- **PDF 파싱 및 콘텐츠 추출**: PyMuPDF/nougat 활용, 텍스트·이미지 추출 후 정제, S3 업로드 및 DB 기록
+- **텍스트 분할 및 임베딩**: RecursiveCharacterTextSplitter, KoSimCSE-roberta, text-embedding-3-small 등 임베딩 모델 적용, pgvector 저장 및 인덱싱
+- **핵심 요약 사전 생성**: LLM 기반 사전 요약 생성 및 별도 테이블 저장
+
+#### 2. 온라인 서빙 파이프라인 (사용자 요청 실시간 처리)
+- **React 프론트엔드**: 사용자 쿼리 입력
+- **FastAPI 백엔드**: 쿼리 임베딩, 동일 임베딩 모델 사용
+- **벡터 검색(pgvector)**: 쿼리 임베딩과 유사한 Chunk 검색
+- **프롬프트 생성 및 LLM 호출**: 구조화된 프롬프트, RAG 기반 요약(JSON)
+- **핵심 Figure 선정 및 결합**: 요약 결과와 Figure/캡션 결합
+- **Redis 캐싱**: 논문 단위 캐싱 및 응답 속도/비용 최적화
+- **프론트엔드 결과 시각화**
+
+### 전체 파이프라인 컴포넌트 및 상호작용 다이어그램
+```
+mermaid
+graph TD
+    subgraph Offline Pipeline
+      A1[Scheduler/CronJob] --> A2[Paper Metadata Collector]
+      A2 --> A3[PDF Parser (PyMuPDF/nougat)]
+      A3 --> A4[Text/Image Extractor]
+      A4 --> A5[Chunking & Embedding]
+      A5 --> A6[Pre-compute Summarizer (LLM)]
+      A6 -->|Store| D1[Supabase PostgreSQL + pgvector]
+      A4 -->|Upload| E1[S3]
+    end
+    
+    subgraph Online Pipeline
+      B1[Next.js Frontend] -->|REST| B2[FastAPI Backend]
+      B2 -->|Query Embedding| B3[Embedding Model]
+      B2 -->|Vector Search| D1
+      B2 -->|Cache| C1[Redis]
+      B2 -->|Prompt| B4[LLM]
+      B2 -->|Figure & Caption| E1
+      B2 -->|Summary+Figures| B1
+    end
+```
+
+- 오프라인 파이프라인은 논문 수집부터 임베딩, 사전 요약까지 자동화, DB/S3에 결과 저장
+- 온라인 파이프라인은 쿼리 임베딩, 벡터 검색, LLM 요약, Figure 결합, 캐싱 최적화로 실시간 응답 제공
+
+- React 기반 UI가 FastAPI로 검색·요약 요청  
+- FastAPI는 pgvector에서 유사 논문 검색 후 LangChain 파이프라인 실행  
+- PDFParser 모듈이 figure 추출→S3에 저장→CloudFront로 제공  
+- Redis로 결과 캐싱 및 알림 큐 관리  
+
+
+### Code Organization & Convention
+**Domain-Driven Organization Strategy**  
+- **도메인 분리**: user, paper, summarize  
+- **레이어 아키텍처**: presentation → service → repository → infrastructure  
+- **기능 모듈화**: 각 도메인별 모듈 단위 관리  
+- **공통 컴포넌트**: utils, types, config, exceptions
+
+**Universal File & Folder Structure**
+```
+/
+├── backend/
+│   ├── app/
+│   │   ├── domains/
+│   │   │   ├── user/
+│   │   │   ├── paper/
+│   │   │   ├── summarize/
+
+│   │   ├── services/
+│   │   ├── repositories/
+│   │   ├── infrastructure/
+│   │   ├── api/        # FastAPI 라우터
+│   │   ├── core/       # 설정, 로깅, 예외처리
+│   │   └── main.py
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/
+│   ├── components/
+│   ├── pages/
+│   ├── styles/
+│   └── next.config.js
+├── crawler/           # 논문 크롤러 배치 스크립트
+├── infra/             # IaC (Terraform/CloudFormation 예비)
+└── .github/
+    └── workflows/     # CI/CD
+```
+
+### Data Flow & Communication Patterns
+- **Client-Server 통신**: HTTPS 기반 REST API, JWT/OAuth2 인증  
+- **Database 상호작용**: SQLAlchemy ORM + pgvector 벡터 쿼리  
+- **외부 연동**: arXiv/CrossRef/Semantic Scholar API  
+- **데이터 동기화**: 배치 크롤러 → DB 업데이트 → 캐시 무효화
+
+## 4. Performance & Optimization Strategy
+- Redis 캐싱으로 반복 쿼리·요약 결과 재사용  
+- pgvector 인덱스 튜닝 및 벡터 차원 최적화  
+- LangChain 파이프라인 병렬 처리 및 비동기 호출  
+- CDN 활용으로 이미지 전송 지연 최소화
+
+## 5. Implementation Roadmap & Milestones
+
+### Phase 1: Foundation (MVP Implementation)
+- **Core Infrastructure**: Next.js, FastAPI, Supabase, Redis 설정  
+- **Essential Features**: 분야 입력 → 벡터 검색 → RAG 요약 → figure 썸네일  
+- **Basic Security**: OAuth2 로그인, HTTPS 설정  
+- **Development Setup**: Docker, GitHub Actions CI  
+- **Timeline**: 0~3개월
+
+### Phase 2: Feature Enhancement
+- **Advanced Features**: 필터, 모바일 UI 개선  
+- **Performance Optimization**: 쿼리/파싱 병렬화, 캐시 정책 조정  
+- **Enhanced Security**: GDPR 데이터 처리, 보안 스캔  
+- **Monitoring Implementation**: Prometheus, Grafana, Sentry  
+- **Timeline**: 3~6개월
+
+### Phase 3: Scaling & Optimization
+- **Scalability Implementation**: Kubernetes 오토스케일, GKE/EKS 확장  
+- **Advanced Integrations**: 협업 메모, 다국어 번역, API 공개  
+- **Enterprise Features**: 관리자 대시보드, 권한 관리  
+- **Compliance & Auditing**: SOC2, ISO27001 준비  
+- **Timeline**: 6~12개월
+
+## 6. Risk Assessment & Mitigation Strategies
+
+### Technical Risk Analysis
+- **Technology Risks**: LLM 환각 → RAG·출처 링크 강화  
+- **Performance Risks**: 대량 벡터 검색 지연 → 인덱스 튜닝·샤딩  
+- **Security Risks**: OAuth2 취약점 → 주기적 보안 점검  
+- **Integration Risks**: 외부 API 변경 → 버전 관리·리트라이 로직  
+- **Mitigation**: 모니터링, 캐싱, 백오프·재시도 정책
+
+### Project Delivery Risks
+- **Timeline Risks**: 의존성 지연 → 마일스톤 기반 스코프 관리  
+- **Resource Risks**: 전문 인력 부족 → 외부 컨설팅·교육  
+- **Quality Risks**: 테스트 커버리지 부족 → TDD, 코드 리뷰 강화  
+- **Deployment Risks**: 환경 차이 문제 → IaC·컨테이너 표준화  
+- **Contingency Plans**: 기능 축소 버전, 대체 서비스 활용
+

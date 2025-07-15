@@ -1,0 +1,28 @@
+# 검색-저장 전체 플로우 단위 테스트
+
+**Task ID:** T-010
+**Status:** BACKLOG
+**Importance:** MUST
+**Complexity:** 3/10
+**Urgency:** 7/10
+**Dependencies:** T-009
+
+## Description
+
+### 설명
+사용자 입력~arXiv API~파싱~DB저장까지의 전체 플로우를 단위 테스트하고, 샘플 시나리오(키워드별 논문 20개 저장)로 검증합니다.
+### 구현 방법
+1. pytest 등 테스트 프레임워크 환경 구성
+2. 입력값별 end-to-end 함수 작성: fetch→parse→save
+3. 실제 arXiv 응답/Mock 데이터로 테스트 케이스 작성
+4. DB에 20개 논문이 정상 저장되는지 assert
+5. 중복 입력 시 저장되지 않는지 추가 검증
+### 테스트 전략
+- 실제 arXiv API 호출 및 Mock 응답으로 테스트 분리
+- DB 상태 초기화 후 반복 테스트
+- 실패 케이스(네트워크, 파싱, DB오류) 시나리오 포함
+
+---
+
+**Created:** 2025-07-15T04:49:57.850Z
+**Updated:** 2025-07-15T04:49:57.850Z

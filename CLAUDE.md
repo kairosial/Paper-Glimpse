@@ -194,3 +194,12 @@ BREAKING CHANGE: remove deprecated getUserData() method
 -   [ ] Imperative mood used
 -   [ ] No trailing period
 -   [ ] Meaningful and clear context
+
+
+<vooster-docs>
+- @vooster-docs/prd.md
+- @vooster-docs/architecture.md
+- @vooster-docs/guideline.md
+- @vooster-docs/step-by-step.md
+- @vooster-docs/clean-code.md
+</vooster-docs>
