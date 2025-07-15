@@ -1,0 +1,217 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Code Guidelines for Research Paper RAG Summarization Project
+
+## 1. Project Overview
+This project delivers an end-to-end RAG (Retrieval-Augmented Generation) pipeline for structured paper summaries.  
+Backend: FastAPI (Python), LangChain orchestration, Supabase PostgreSQL + pgvector, Redis caching, S3/CloudFront for images.  
+Frontend: Next.js (React), TypeScript, responsive dashboard with search, filters, summary cards.  
+Architecture:  
+- Offline batch pipeline (Airflow/Cron → crawler → parser → embeddings → pre-summaries)  
+- Online serving pipeline (Next.js → FastAPI → pgvector search → LLM → cache → UI)
+
+## 2. Core Principles
+1. **Consistency**: Enforce naming, imports, formatting across all modules (measurable via lint).  
+2. **Modularity**: Single Responsibility per file/class (max 200 LOC).  
+3. **Type Safety**: Use type hints (Python) and TypeScript interfaces everywhere (100% coverage).  
+4. **Clarity**: Favor explicit code (no magic) and self-documenting names.  
+5. **Testability**: All new logic must include unit tests (≥80% coverage per module).
+
+## 3. Language-Specific Guidelines
+
+### Python (FastAPI + LangChain)
+- **File Organization**:  
+  ─ backend/app/  
+    ├── api/           # FastAPI routers  
+    ├── domains/       # user, paper, summarize  
+    ├── services/      # business logic  
+    ├── repositories/  # DB operations  
+    ├── infrastructure/# external integrations  
+    ├── core/          # config, exceptions, logger  
+    └── main.py  
+
+- **Imports**:  
+  1. Standard library  
+  2. Third-party  
+  3. Local (`from app.domains.paper import models`)  
+- **Dependency Management**:  
+  - Use `poetry` or `pip-tools`.  
+  - Pin exact versions in `pyproject.toml` or `requirements.txt`.  
+- **Error Handling**:  
+  - Raise `HTTPException` in routers.  
+  - Define custom exceptions under `core/exceptions.py`.  
+  - Centralize handlers in `api/router_exceptions.py`.  
+
+### TypeScript & React (Next.js)
+- **Directory Structure**:  
+  ─ frontend/  
+    ├── components/    # reusable UI  
+    ├── pages/         # Next.js routes  
+    ├── hooks/         # custom hooks (e.g. useSummary)  
+    ├── services/      # API clients  
+    ├── context/       # React Context providers  
+    └── styles/        # CSS/SCSS modules  
+
+- **Imports**:  
+  - Group: React/core → third-party → absolute aliases (`@/components`) → relative.  
+  - Use `tsconfig.json` `baseUrl` and `paths`.  
+
+- **Error Handling**:  
+  - Wrap async functions in `try/catch`.  
+  - Use Error Boundaries for UI.  
+  - Standardize API errors shape: `{ statusCode: number; message: string }`.
+
+### Docker & Infrastructure as Code
+- **Dockerfiles**:  
+  - Small multi-stage builds.  
+  - `COPY requirements.txt .` before `pip install`.  
+- **CI/CD (GitHub Actions)**:  
+  - Separate jobs: lint, test, build, deploy.  
+  - Use pinned action versions.
+
+## 4. Code Style Rules
+
+### MUST Follow
+1. **Use Type Hints / TypeScript Types**  
+   - Python functions require full annotations.  
+   - TSX components declare `Props` interface.  
+   Rationale: Improves readability and tooling support.  
+
+2. **Async/Await for I/O**  
+   - All DB and network calls must be `async`.  
+   Rationale: Non-blocking performance.  
+
+3. **Pydantic for Validation**  
+   - Use `BaseModel` for request/response schemas.  
+   Rationale: Ensures input correctness and auto-docs.  
+
+4. **React Function Components + Hooks**  
+   ```tsx
+   // MUST: Stateless functional component with props typing
+   import React from 'react';
+
+   interface SummaryCardProps {
+     title: string;
+     snippet: string;
+   }
+
+   const SummaryCard: React.FC<SummaryCardProps> = ({ title, snippet }) => (
+     <div className="card">
+       <h3>{title}</h3>
+       <p>{snippet}</p>
+     </div>
+   );
+   ```
+   Rationale: Simplifies lifecycle and state management.
+
+5. **HTTP Status Codes & OpenAPI Tags**  
+   ```python
+   @router.get("/papers/{paper_id}", response_model=PaperDto, status_code=200, tags=["paper"])
+   async def get_paper(paper_id: UUID):
+       ...
+   ```
+   Rationale: Clear API semantics and auto-generated docs.
+
+### MUST NOT Do
+1. **No Monolithic Files**  
+   - Don’t put multiple domains/services in one file.  
+   - Each file ≤200 LOC.  
+2. **No Mutable Default Arguments in Python**  
+   ```python
+   # MUST NOT:
+   def fetch_chunks(model: str, cache: dict = {}):
+       ...
+   ```
+   Rationale: Leads to shared state bugs.  
+3. **No Direct SQL in Controllers**  
+   - Use repository layer.  
+4. **No Inline Styles / Magic Strings**  
+   - CSS modules or styled-components only.  
+
+## 5. Architecture Patterns
+
+### Component & Module Structure
+- **Backend Layers**  
+  1. **Presentation** (`api/routers`)  
+  2. **Service** (`services/`)  
+  3. **Repository** (`repositories/`)  
+  4. **Infrastructure** (`infrastructure/clients.py`)  
+
+- **Frontend State**  
+  - Local component state via `useState` or `useReducer`.  
+  - Global state via React Context or Zustand for auth and user preferences.  
+
+### Data Flow
+1. Frontend dispatches query →  
+2. FastAPI endpoint receives request →  
+3. Service orchestrates: repository.search_embeddings → LangChain prompt → LLM call → repository.fetch_figures → cache → response →  
+4. Frontend updates UI via SWR or React Query.  
+
+### API Design Standards
+- **RESTful Endpoints**  
+  - `/api/papers?query=...&year=2023`  
+  - `/api/users/{id}/recommendations`  
+- **Consistent Response Wrapper**  
+  ```json
+  { "data": {...}, "error": null }
+  ```
+- **Versioning**: Prefix `/v1/` in URLs.  
+
+## Example Code Snippets
+
+#### Python Service Layer
+```python
+# MUST: Business logic separated from API
+from app.repositories.paper import PaperRepository
+from app.infrastructure.llm import LLMClient
+
+class SummaryService:
+    def __init__(self, repo: PaperRepository, llm: LLMClient):
+        self.repo = repo
+        self.llm = llm
+
+    async def generate_summary(self, query: str) -> dict:
+        chunks = await self.repo.search_embeddings(query)
+        prompt = self._build_prompt(chunks)
+        summary = await self.llm.call(prompt)
+        return summary
+
+    def _build_prompt(self, chunks: list[str]) -> str:
+        return f"Summarize: {chunks[:3]}"
+```
+
+#### TypeScript API Client
+```ts
+// MUST: Centralized API calls with typed responses
+import axios from 'axios';
+
+export interface SummaryDto {
+  title: string;
+  snippet: string;
+  figures: { url: string; caption: string }[];
+}
+
+export async function fetchSummary(query: string): Promise<SummaryDto> {
+  const resp = await axios.get<{ data: SummaryDto }>('/api/v1/summary', {
+    params: { query },
+  });
+  return resp.data.data;
+}
+```
+
+#### Anti-Pattern Example
+```python
+# MUST NOT: Direct DB calls in router and missing types
+@router.get("/papers/raw")
+async def raw():
+    rows = db.execute("SELECT * FROM papers")  # bad: raw SQL here
+    return rows
+```
+Fix: Move SQL to `repositories/paper.py` and use typed models.
+
+---
+
+Adhere strictly to these guidelines. Use automated linting (flake8, black, eslint, Prettier) and enforce via CI. Continuous review ensures alignment with architecture and code quality goals.
