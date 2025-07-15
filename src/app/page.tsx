@@ -13,7 +13,7 @@ interface Paper {
   title: string;
   authors: string[];
   abstract: string;
-  publishedDate: string;
+  published_date: string;
   journal: string;
   url: string;
 }
@@ -38,7 +38,7 @@ export default function Home() {
     setError(null);
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/search`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/papers/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +147,7 @@ export default function Home() {
                         <span>•</span>
                         <Badge variant="secondary">{paper.journal}</Badge>
                         <span>•</span>
-                        <span>{new Date(paper.publishedDate).toLocaleDateString('ko-KR')}</span>
+                        <span>{new Date(paper.published_date).toLocaleDateString('ko-KR')}</span>
                       </div>
                     </CardHeader>
                     
